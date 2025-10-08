@@ -81,6 +81,8 @@ let settings = PlaySettings.shared
     @objc lazy var enableScrollWheel = settingsData.enableScrollWheel
 
     @objc lazy var limitMotionUpdateFrequency = settingsData.limitMotionUpdateFrequency
+
+    @objc lazy var disableBuiltinMouse = settingsData.disableBuiltinMouse
 }
 
 struct AppSettingsData: Codable {
@@ -106,4 +108,5 @@ struct AppSettingsData: Codable {
     var noKMOnInput = false
     var enableScrollWheel = true
     var limitMotionUpdateFrequency = false
+    var disableBuiltinMouse = false
 }
