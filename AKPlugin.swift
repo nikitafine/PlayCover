@@ -81,23 +81,17 @@ class AKPlugin: NSObject, Plugin {
             if checkCmd(modifier: event.modifierFlags) {
                 return event
             }
-            let consumed = keyboard(event.keyCode, true, event.isARepeat,
-                                    event.modifierFlags.contains(.control))
-            if consumed {
-                return nil
-            }
-            return event
+            keyboard(event.keyCode, true, event.isARepeat,
+                     event.modifierFlags.contains(.control))
+            return nil
         })
         NSEvent.addLocalMonitorForEvents(matching: .keyUp, handler: { event in
             if checkCmd(modifier: event.modifierFlags) {
                 return event
             }
-            let consumed = keyboard(event.keyCode, false, false,
-                                    event.modifierFlags.contains(.control))
-            if consumed {
-                return nil
-            }
-            return event
+            keyboard(event.keyCode, false, false,
+                     event.modifierFlags.contains(.control))
+            return nil
         })
         NSEvent.addLocalMonitorForEvents(matching: .flagsChanged, handler: { event in
             if checkCmd(modifier: event.modifierFlags) {
@@ -111,14 +105,11 @@ class AKPlugin: NSObject, Plugin {
                 if swapMode() {
                     return nil
                 }
-                return event
-            }
-            let consumed = keyboard(event.keyCode, pressed, false,
-                                    event.modifierFlags.contains(.control))
-            if consumed {
                 return nil
             }
-            return event
+            keyboard(event.keyCode, pressed, false,
+                     event.modifierFlags.contains(.control))
+            return nil
         })
     }
 

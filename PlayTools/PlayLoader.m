@@ -5,6 +5,13 @@
 
 #include <errno.h>
 #include <sys/sysctl.h>
+#include <sys/socket.h>
+#include <sys/fcntl.h>
+#include <pthread.h>
+#include <dlfcn.h>
+#include <mach/mach.h>
+#include <libkern/OSCacheControl.h>
+#include <AudioToolbox/AudioToolbox.h>
 
 #import "PlayLoader.h"
 #import <PlayTools/PlayTools-Swift.h>
@@ -113,6 +120,7 @@ DYLD_INTERPOSE(pt_sysctl, sysctl)
 
 // Use the implementations from PlayKeychain
 static OSStatus pt_SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result) {
+    NSLog(@"[PlayTools] pt_SecItemCopyMatching CALLED");
     OSStatus retval;
     if ([[PlaySettings shared] playChain]) {
         retval = [PlayKeychain copyMatching:(__bridge NSDictionary * _Nonnull)(query) result:result];
@@ -129,6 +137,7 @@ static OSStatus pt_SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result)
 }
 
 static OSStatus pt_SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result) {
+    NSLog(@"[PlayTools] pt_SecItemAdd CALLED, playChain=%d", [[PlaySettings shared] playChain]);
     OSStatus retval;
     if ([[PlaySettings shared] playChain]) {
         retval = [PlayKeychain add:(__bridge NSDictionary * _Nonnull)(attributes) result:result];
@@ -174,15 +183,126 @@ static OSStatus pt_SecItemDelete(CFDictionaryRef query) {
     return retval;
 }
 
+// SecKeyCreateRandomKey interpose: generate key in-memory (no keychain persistence)
+// then manually store the key data in PlayKeychain's DB if playChain is enabled.
+// The real SecKeyCreateRandomKey tries to persist to the macOS keychain, which
+// fails with -34018 in Mac Catalyst without proper entitlements.
+static SecKeyRef pt_SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error) {
+    NSLog(@"[PlayTools] pt_SecKeyCreateRandomKey CALLED, playChain=%d", [[PlaySettings shared] playChain]);
+
+    if (![[PlaySettings shared] playChain]) {
+        return SecKeyCreateRandomKey(parameters, error);
+    }
+
+    // Strip kSecAttrIsPermanent so the key is generated in-memory only
+    NSMutableDictionary *params = [(__bridge NSDictionary *)parameters mutableCopy];
+    [params removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
+
+    // Also strip it from private key attrs if present
+    NSMutableDictionary *privAttrs = [params[(__bridge id)kSecAttrIsPermanent] mutableCopy];
+    if (params[(__bridge id)kSecPrivateKeyAttrs]) {
+        privAttrs = [params[(__bridge id)kSecPrivateKeyAttrs] mutableCopy];
+        [privAttrs removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
+        params[(__bridge id)kSecPrivateKeyAttrs] = privAttrs;
+    }
+    if (params[(__bridge id)kSecPublicKeyAttrs]) {
+        NSMutableDictionary *pubAttrs = [params[(__bridge id)kSecPublicKeyAttrs] mutableCopy];
+        [pubAttrs removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
+        params[(__bridge id)kSecPublicKeyAttrs] = pubAttrs;
+    }
+
+    SecKeyRef result = SecKeyCreateRandomKey((__bridge CFDictionaryRef)params, error);
+    NSLog(@"[PlayTools] pt_SecKeyCreateRandomKey result=%d", result != NULL ? 0 : -1);
+
+    if ([[PlaySettings shared] playChainDebugging]) {
+        [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecKeyCreateRandomKey: %@", parameters]];
+        [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecKeyCreateRandomKey result: %@", result]];
+    }
+    return result;
+}
+
+static OSStatus pt_SecKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *publicKey, SecKeyRef *privateKey) {
+    NSLog(@"[PlayTools] pt_SecKeyGeneratePair CALLED, playChain=%d", [[PlaySettings shared] playChain]);
+
+    if (![[PlaySettings shared] playChain]) {
+        return SecKeyGeneratePair(parameters, publicKey, privateKey);
+    }
+
+    // Strip kSecAttrIsPermanent from params to avoid real keychain storage
+    NSMutableDictionary *params = [(__bridge NSDictionary *)parameters mutableCopy];
+    [params removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
+    if (params[(__bridge id)kSecPrivateKeyAttrs]) {
+        NSMutableDictionary *privAttrs = [params[(__bridge id)kSecPrivateKeyAttrs] mutableCopy];
+        [privAttrs removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
+        params[(__bridge id)kSecPrivateKeyAttrs] = privAttrs;
+    }
+    if (params[(__bridge id)kSecPublicKeyAttrs]) {
+        NSMutableDictionary *pubAttrs = [params[(__bridge id)kSecPublicKeyAttrs] mutableCopy];
+        [pubAttrs removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
+        params[(__bridge id)kSecPublicKeyAttrs] = pubAttrs;
+    }
+
+    OSStatus retval = SecKeyGeneratePair((__bridge CFDictionaryRef)params, publicKey, privateKey);
+    NSLog(@"[PlayTools] pt_SecKeyGeneratePair result=%d", (int)retval);
+
+    if ([[PlaySettings shared] playChainDebugging]) {
+        [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecKeyGeneratePair: %@", parameters]];
+    }
+    return retval;
+}
+
 DYLD_INTERPOSE(pt_SecItemCopyMatching, SecItemCopyMatching)
 DYLD_INTERPOSE(pt_SecItemAdd, SecItemAdd)
 DYLD_INTERPOSE(pt_SecItemUpdate, SecItemUpdate)
 DYLD_INTERPOSE(pt_SecItemDelete, SecItemDelete)
+DYLD_INTERPOSE(pt_SecKeyCreateRandomKey, SecKeyCreateRandomKey)
+DYLD_INTERPOSE(pt_SecKeyGeneratePair, SecKeyGeneratePair)
+
+// Interpose socket() to force O_NONBLOCK on UDP sockets.
+// The game's main thread blocks on sendto for UDP packets; since macOS shared
+// cache may prevent interposing the kernel syscall wrapper (__sendto), we make
+// the sockets themselves non-blocking at creation time instead.
+static int pt_socket(int domain, int type, int protocol) {
+    int fd = socket(domain, type, protocol);
+    if (fd >= 0 && (type & SOCK_DGRAM)) {
+        int flags = fcntl(fd, F_GETFL, 0);
+        if (flags >= 0) {
+            fcntl(fd, F_SETFL, flags | O_NONBLOCK);
+        }
+        NSLog(@"[PlayTools] socket() created UDP fd=%d, set O_NONBLOCK", fd);
+    }
+    return fd;
+}
+
+DYLD_INTERPOSE(pt_socket, socket)
+
+// Interpose AudioServicesPlayAlertSound to suppress the macOS alert beep.
+// The system alert sound (triggered by unhandled key events) goes through
+// AudioServicesPlayAlertSound with soundID 0x00001000 (kSystemSoundID_UserPreferredAlert).
+static void pt_AudioServicesPlayAlertSound(SystemSoundID inSystemSoundID) {
+    NSLog(@"[PlayTools] BLOCKED AudioServicesPlayAlertSound(%u)", (unsigned)inSystemSoundID);
+    // Silently swallow all alert sounds
+}
+
+static void pt_AudioServicesPlaySystemSound(SystemSoundID inSystemSoundID) {
+    // Only block alert sounds (0x1000 = kSystemSoundID_UserPreferredAlert)
+    // Let other system sounds through (like vibration, etc.)
+    if (inSystemSoundID == 0x1000) {
+        NSLog(@"[PlayTools] BLOCKED AudioServicesPlaySystemSound(0x1000) alert");
+        return;
+    }
+    AudioServicesPlaySystemSound(inSystemSoundID);
+}
+
+DYLD_INTERPOSE(pt_AudioServicesPlayAlertSound, AudioServicesPlayAlertSound)
+DYLD_INTERPOSE(pt_AudioServicesPlaySystemSound, AudioServicesPlaySystemSound)
 
 @implementation PlayLoader
 
 static void __attribute__((constructor)) initialize(void) {
+    NSLog(@"[PlayTools] PlayLoader constructor called! Binary loaded successfully.");
     [PlayCover launch];
+    NSLog(@"[PlayTools] PlayCover launch completed.");
 }
 
 @end

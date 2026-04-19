@@ -12,6 +12,7 @@
 #import <PlayTools/PlayTools-Swift.h>
 #import "PTFakeMetaTouch.h"
 #import <VideoSubscriberAccount/VideoSubscriberAccount.h>
+#import <dlfcn.h>
 
 __attribute__((visibility("hidden")))
 @interface PTSwizzleLoader : NSObject
@@ -249,6 +250,51 @@ bool menuWasCreated = false;
     // [objc_getClass("UITraitCollection") swizzleInstanceMethod:@selector(userInterfaceIdiom) withMethod:@selector(hook_userInterfaceIdiom)];
 
     [objc_getClass("VSSubscriptionRegistrationCenter") swizzleInstanceMethod:@selector(setCurrentSubscription:) withMethod:@selector(hook_setCurrentSubscription:)];
+
+    // Suppress macOS alert beep for unhandled key events.
+    // In Mac Catalyst, NSWindow's noResponderFor: calls NSBeep when a key
+    // event reaches the end of the responder chain without being handled.
+    // We swizzle noResponderFor: on UINSWindow (the Mac Catalyst window class)
+    // to silently drop keyboard events instead of beeping.
+    Class uinsWindowClass = objc_getClass("UINSWindow");
+    if (uinsWindowClass) {
+        SEL noResponderSel = @selector(noResponderFor:);
+        Method origMethod = class_getInstanceMethod(uinsWindowClass, noResponderSel);
+        if (origMethod) {
+            // Replace with a no-op that just does nothing
+            class_replaceMethod(uinsWindowClass, noResponderSel, imp_implementationWithBlock(^(id _self, SEL eventType) {
+                // Silently swallow - do not call NSBeep
+            }), method_getTypeEncoding(origMethod));
+            NSLog(@"[PlayTools] Swizzled UINSWindow noResponderFor: to suppress beep");
+        }
+    }
+
+    // Also try to override NSBeep directly via runtime
+    void *beepFunc = dlsym(RTLD_DEFAULT, "NSBeep");
+    if (beepFunc) {
+        NSLog(@"[PlayTools] NSBeep found at %p (noResponderFor: swizzle should prevent it from being called)", beepFunc);
+    }
+
+    // Prevent ESC key from exiting fullscreen mode.
+    // macOS routes ESC -> cancelOperation: -> toggleFullScreen: when in fullscreen.
+    // Swizzle cancelOperation: on UINSWindow to suppress this when fullscreen.
+    if (uinsWindowClass) {
+        SEL cancelOpSel = @selector(cancelOperation:);
+        Method cancelMethod = class_getInstanceMethod(uinsWindowClass, cancelOpSel);
+        if (cancelMethod) {
+            IMP origCancelImp = method_getImplementation(cancelMethod);
+            class_replaceMethod(uinsWindowClass, cancelOpSel, imp_implementationWithBlock(^(id _self, id sender) {
+                NSUInteger styleMask = [[_self valueForKey:@"styleMask"] unsignedIntegerValue];
+                if (styleMask & (1 << 14)) { // NSWindowStyleMaskFullScreen = 1 << 14
+                    // In fullscreen - suppress ESC exit
+                    return;
+                }
+                // Not in fullscreen - call original
+                ((void (*)(id, SEL, id))origCancelImp)(_self, cancelOpSel, sender);
+            }), method_getTypeEncoding(cancelMethod));
+            NSLog(@"[PlayTools] Swizzled UINSWindow cancelOperation: to block ESC fullscreen exit");
+        }
+    }
 }
 
 @end

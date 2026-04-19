@@ -6,7 +6,22 @@
 //
 
 import Foundation
-import Atomics
+
+// Minimal lock-based replacement for swift-atomics
+private enum AtomicLoadOrdering { case relaxed, acquiring, sequentiallyConsistent }
+private enum AtomicStoreOrdering { case relaxed, releasing, sequentiallyConsistent }
+
+private final class ManagedAtomic<Value> {
+    private let lock = NSLock()
+    private var value: Value
+    init(_ value: Value) { self.value = value }
+    func load(ordering: AtomicLoadOrdering) -> Value {
+        lock.lock(); defer { lock.unlock() }; return value
+    }
+    func store(_ newValue: Value, ordering: AtomicStoreOrdering) {
+        lock.lock(); value = newValue; lock.unlock()
+    }
+}
 
 // If the same key is mapped to multiple different tasks, distinguish by priority
 public enum ActionDispatchPriority: Int {
@@ -215,7 +230,7 @@ public class ActionDispatcher {
     }
 }
 
-private final class AtomicHandler: AtomicReference {
+private final class AtomicHandler {
     static fileprivate let EMPTY = AtomicHandler("", {_, _ in })
     let key: String
     let handle: (CGFloat, CGFloat) -> Void

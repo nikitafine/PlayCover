@@ -17,6 +17,9 @@ class PlayInput {
     func initialize() {
         // drain the dispatch queue every frame for responding to GCController events
         let displaylink = CADisplayLink(target: self, selector: #selector(drainMainDispatchQueue))
+        if #available(iOS 15.0, *) {
+            displaylink.preferredFrameRateRange = CAFrameRateRange(minimum: 80, maximum: 120, preferred: 120)
+        }
         displaylink.add(to: .main, forMode: .common)
 
         if !PlaySettings.shared.keymapping {
