@@ -25,11 +25,14 @@ public class PlayKeychain: NSObject {
     // Store the entire dictionary as a plist
     // SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result)
     @objc static public func add(_ attributes: NSDictionary, result: UnsafeMutablePointer<Unmanaged<CFTypeRef>?>?) -> OSStatus {
-        guard let keychainDict = db.insert(attributes) else {
+        let keychainDict = db.insert(attributes)
+        if keychainDict == nil {
             debugLogger("Failed to write keychain file")
-            return errSecIO
+            // Don't return errSecIO — game crashes on non-success.
+            // Fall through to still handle result construction.
+        } else {
+            debugLogger("Wrote keychain item to db")
         }
-        debugLogger("Wrote keychain item to db")
         // Place v_Data in the result
         guard let vData = attributes["v_Data"] as? CFTypeRef else {
             return errSecSuccess
@@ -37,7 +40,7 @@ public class PlayKeychain: NSObject {
 
         if attributes["r_Attributes"] as? Int == 1 {
             // Create a dummy dictionary and return it
-            let dummyDict = keychainDict
+            let dummyDict = keychainDict ?? NSMutableDictionary()
             if attributes["r_Data"] as? Int != 1 {
                 dummyDict.removeObject(forKey: kSecValueData)
                 dummyDict.removeObject(forKey: kSecValueRef)

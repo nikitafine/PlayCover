@@ -242,7 +242,9 @@ class PlayKeychainDB: NSObject {
             .appendingPathComponent("PlayChain")
             .appendingPathComponent("\(bundleID).db")
 
-        let alreadyCreated = FileManager.default.fileExists(atPath: keychainDB.path)
+        // Ensure PlayChain directory exists
+        let playChainDir = keychainDB.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: playChainDir, withIntermediateDirectories: true)
 
         guard sqlite3_open(keychainDB.path, &sqlite3DB) == SQLITE_OK,
               let sqlite3DB = sqlite3DB else {
@@ -250,7 +252,11 @@ class PlayKeychainDB: NSObject {
             return nil
         }
 
-        if !alreadyCreated || !structDB(sqlite3DB) {
+        // Wait up to 3s for locks from other processes
+        sqlite3_exec(sqlite3DB, "PRAGMA busy_timeout = 3000", nil, nil, nil)
+
+        // Always ensure tables exist (CREATE TABLE IF NOT EXISTS is idempotent)
+        guard structDB(sqlite3DB) else {
             _ = disconnectFromDB(sqlite3DB)
             return nil
         }
