@@ -31,22 +31,13 @@ class Keymapping {
 
     var keymapConfig: KeymapConfig {
         get {
-            do {
-                let data = try Data(contentsOf: configURL)
-                let map = try PropertyListDecoder().decode(KeymapConfig.self, from: data)
-                return map
-            } catch {
-                print(error)
+            guard let config = loadConfig() else {
                 return resetConfig()
             }
+            return config
         }
         set {
-            do {
-                let data = try encoder.encode(newValue)
-                try data.write(to: configURL)
-            } catch {
-                print(error)
-            }
+            writeConfig(newValue)
         }
     }
 
@@ -103,7 +94,7 @@ class Keymapping {
                 return
             }
         } catch {
-            print("failed to get keymapping directory")
+            Log.shared.log("Failed to get keymapping directory at \(baseKeymapURL.path)", isError: true)
             Log.shared.error(error)
         }
 
@@ -112,14 +103,11 @@ class Keymapping {
     }
 
     public func getKeymap(name: String) -> Keymap {
-        do {
-            let data = try Data(contentsOf: constructKeymapPath(name: name))
-            let map = try PropertyListDecoder().decode(Keymap.self, from: data)
-            return map
-        } catch {
-            print(error)
+        let keymapURL = constructKeymapPath(name: name)
+        guard let keymap = loadKeymap(at: keymapURL) else {
             return reset(name: name)
         }
+        return keymap
     }
 
     public func createEmptyKeymap(name: String) -> Bool {
@@ -139,7 +127,7 @@ class Keymapping {
                 keymapConfig.keymapOrder.append(keymapPath)
             }
         } catch {
-            print(error)
+            Log.shared.log("Failed to write keymap at \(keymapPath.path)", isError: true)
         }
     }
 
@@ -159,7 +147,7 @@ class Keymapping {
                 return false
             }
         } else {
-            print("could not find keymap with name: \(prevName)")
+            Log.shared.log("Could not find keymap with name: \(prevName)", isError: true)
             return false
         }
     }
@@ -179,7 +167,7 @@ class Keymapping {
                 return false
             }
         } else {
-            print("could not find keymap with name: \(name)")
+            Log.shared.log("Could not find keymap with name: \(name)", isError: true)
             return false
         }
     }
@@ -190,18 +178,50 @@ class Keymapping {
 
     @discardableResult
     public func reset(name: String) -> Keymap {
-        setKeymap(name: name, map: Keymap(bundleIdentifier: info.bundleIdentifier))
-        return getKeymap(name: name)
+        let keymap = Keymap(bundleIdentifier: info.bundleIdentifier)
+        setKeymap(name: name, map: keymap)
+        return keymap
     }
 
     @discardableResult
     private func resetConfig() -> KeymapConfig {
+        let config = defaultConfig()
+        writeConfig(config)
+        return config
+    }
+
+    private func loadConfig() -> KeymapConfig? {
+        do {
+            let data = try Data(contentsOf: configURL)
+            return try PropertyListDecoder().decode(KeymapConfig.self, from: data)
+        } catch {
+            Log.shared.log("Failed to load keymap config at \(configURL.path)", isError: true)
+            return nil
+        }
+    }
+
+    private func writeConfig(_ config: KeymapConfig) {
+        do {
+            let data = try encoder.encode(config)
+            try data.write(to: configURL)
+        } catch {
+            Log.shared.log("Failed to write keymap config at \(configURL.path)", isError: true)
+        }
+    }
+
+    private func defaultConfig() -> KeymapConfig {
         let defaultURL = constructKeymapPath(name: "default")
+        return KeymapConfig(defaultKm: defaultURL, keymapOrder: [defaultURL])
+    }
 
-        keymapConfig = KeymapConfig(defaultKm: defaultURL,
-                                    keymapOrder: [defaultURL])
-
-        return keymapConfig
+    private func loadKeymap(at url: URL) -> Keymap? {
+        do {
+            let data = try Data(contentsOf: url)
+            return try PropertyListDecoder().decode(Keymap.self, from: data)
+        } catch {
+            Log.shared.log("Failed to load keymap at \(url.path)", isError: true)
+            return nil
+        }
     }
 
     public func importKeymap(name: String, success: @escaping (Bool) -> Void) {

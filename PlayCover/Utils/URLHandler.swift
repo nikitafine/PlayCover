@@ -55,6 +55,8 @@ struct URLHandler {
         switch uriHost {
         case "source":
             processSourceURL(params: params)
+        case "app":
+            processAppURL(params: params)
         default:
             // Print URL to log and break
             NSLog("Unknown URL: \(url)")
@@ -97,5 +99,45 @@ struct URLHandler {
                 print("Unknown source URL params: \(params)")
             }
         }
+    }
+
+    func processAppURL(params: [URLQueryItem]) {
+        guard let action = params.first(where: { $0.name == "action" })?.value else {
+            NSLog("Missing app action in params: \(params)")
+            return
+        }
+
+        switch action {
+        case "open":
+            guard let bundleId = params.first(where: { $0.name == "bundleId" })?.value,
+                  !bundleId.isEmpty else {
+                NSLog("Missing bundleId for app open URL: \(params)")
+                return
+            }
+
+            Task { @MainActor in
+                await openApp(bundleId: bundleId)
+            }
+        default:
+            NSLog("Unknown app URL params: \(params)")
+        }
+    }
+
+    @MainActor
+    private func openApp(bundleId: String) async {
+        AppsVM.shared.fetchApps()
+
+        for _ in 0..<50 {
+            if let app = AppsVM.shared.apps.first(where: { $0.info.bundleIdentifier == bundleId }) {
+                if !app.isStarting {
+                    await app.launch(viaLauncherAlias: true)
+                }
+                return
+            }
+
+            try? await Task.sleep(nanoseconds: 100_000_000)
+        }
+
+        NSLog("Unable to find app with bundle id: \(bundleId)")
     }
 }

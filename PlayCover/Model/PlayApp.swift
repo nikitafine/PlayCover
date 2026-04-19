@@ -61,7 +61,7 @@ class PlayApp: BaseApp {
     lazy var container = AppContainer(bundleId: info.bundleIdentifier)
 
     // MARK: - Launch
-    func launch() async {
+    func launch(viaLauncherAlias: Bool = false) async {
         do {
             isStarting = true
 
@@ -106,7 +106,11 @@ class PlayApp: BaseApp {
                 if settings.openWithLLDB {
                     try Shell.lldb(executable, withTerminalWindow: settings.openLLDBWithTerminal)
                 } else {
-                    runAppExec() // Splitting to reduce complexity
+                    if viaLauncherAlias {
+                        runExecutableFallback()
+                    } else {
+                        runAppExec() // Splitting to reduce complexity
+                    }
                 }
             }
             isStarting = false
@@ -122,7 +126,7 @@ extension PlayApp {
     static let iosFrameworks: String = "/System/iOSSupport/System/Library/Frameworks"
 
     /// Common Metal and capture related environment keys used in multiple places
-    private static let metalEnvKeys: [String] = [
+    static let metalEnvKeys: [String] = [
         "METAL_DEVICE_WRAPPER_TYPE",
         "METAL_DEBUG_LAYER",
         "MTL_DEBUG_LAYER",
@@ -151,8 +155,70 @@ extension PlayApp {
         }
     }
 
+    private func launchEnvironment() -> [String: String] {
+        ProcessInfo.processInfo.environment.filter { key, _ in
+            !key.hasPrefix("DYLD_") && !PlayApp.metalEnvKeys.contains(key)
+        }
+    }
+
+    private func monitorLaunchedApp(_ runningApp: NSRunningApplication?) {
+        Task(priority: .background) {
+            if let runningApp = runningApp {
+                while !(runningApp.isTerminated) {
+                    if runningApp.isActive {
+                        self.disableTimeOut()
+                    } else {
+                        self.enableTimeOut()
+                    }
+                    sleep(1)
+                }
+                sleep(1)
+            }
+            self.lockKeyCover()
+        }
+    }
+
+    private func runExecutableFallback() {
+        let process = Process()
+        process.executableURL = executable
+        process.arguments = ["-ApplePersistenceIgnoreState", "YES"]
+        process.environment = launchEnvironment()
+
+        do {
+            try process.run()
+        } catch {
+            Log.shared.error(error)
+            self.lockKeyCover()
+            return
+        }
+
+        Task(priority: .background) {
+            var runningApp: NSRunningApplication?
+
+            for _ in 0..<20 {
+                runningApp = NSRunningApplication(processIdentifier: process.processIdentifier)
+                if runningApp != nil {
+                    break
+                }
+                usleep(100_000)
+            }
+
+            if let runningApp {
+                self.monitorLaunchedApp(runningApp)
+                return
+            }
+
+            while process.isRunning {
+                sleep(1)
+            }
+            self.lockKeyCover()
+        }
+    }
+
     func runAppExec() {
         let config = NSWorkspace.OpenConfiguration()
+        config.arguments = ["-ApplePersistenceIgnoreState", "YES"]
+        config.environment = launchEnvironment()
 
         // Prevent propagating debugging-related variables to child process
         for (key, _) in ProcessInfo.processInfo.environment where key.hasPrefix("DYLD_") {
@@ -162,29 +228,29 @@ extension PlayApp {
             unsetenv(key)
         }
 
+        clearSavedState()
+
         NSWorkspace.shared.openApplication(
             at: aliasURL,
             configuration: config,
             completionHandler: { runningApp, error in
-                guard error == nil else { return }
-                // Run a thread loop in the background to handle background tasks
-                Task(priority: .background) {
-                    if let runningApp = runningApp {
-                        while !(runningApp.isTerminated) {
-                            if runningApp.isActive {
-                                self.disableTimeOut()
-                            } else {
-                                self.enableTimeOut()
-                            }
-                            sleep(1)
-                        }
-                        sleep(1)
-                    }
-                    // Things that are run after the app is closed
-                    self.lockKeyCover()
+                if let error {
+                    Log.shared.error(error)
+                    self.runExecutableFallback()
+                    return
                 }
+                self.monitorLaunchedApp(runningApp)
             }
         )
+    }
+
+    private func clearSavedState() {
+        FileManager.default.delete(at: container.savedStateUrl)
+        FileManager.default.delete(at: FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library")
+            .appendingPathComponent("Saved Application State")
+            .appendingPathComponent(info.bundleIdentifier)
+            .appendingPathExtension("savedState"))
     }
 }
 

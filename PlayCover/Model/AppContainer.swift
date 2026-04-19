@@ -26,6 +26,16 @@ struct AppContainer {
             .appendingPathExtension("plist")
     }
 
+    var temporaryUrl: URL {
+        containerUrl.appendingPathComponent("Data")
+            .appendingPathComponent("tmp")
+    }
+
+    var savedStateUrl: URL {
+        temporaryUrl.appendingPathComponent(bundleId)
+            .appendingPathExtension("savedState")
+    }
+
     init(bundleId: String) {
         self.bundleId = bundleId
     }
