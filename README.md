@@ -31,6 +31,33 @@
   </p>
 </div>
 
+## Fork Notice
+
+This repository is a Minecraft Bedrock-focused fork of PlayCover. The goal is to keep the upstream PlayCover project recognizable while documenting the extra launcher/runtime work needed to run the iOS version of Minecraft on Apple Silicon Macs.
+
+- upstream PlayCover remains the main project and primary upstream for the app itself
+- this fork vendors the matching `PlayTools` source tree in-repo so Minecraft-specific runtime fixes can ship from one repository
+- the sections below still largely follow the upstream README so upstream authorship and project context stay visible
+
+Maintainer notes for the one-repo layout are in [MINECRAFT_FORK.md](./MINECRAFT_FORK.md).
+
+## Current Limitations
+
+This fork is usable for Minecraft Bedrock, but it still has known shortcomings:
+
+- in-game scrolling is not fully correct yet
+  - menu scrolling is mostly fine
+  - world/in-game scrolling can still be interpreted as touch-style camera or hotbar gestures
+- controller support is not solved
+  - PlayCover/PlayTools currently rely on Apple's `GameController` stack rather than shipping a generic HID-to-iOS gamepad bridge
+  - some controllers work in some games, but Minecraft controller support is not reliably fixed in this fork
+- hanging process on quit is not fully fixed at the runtime level
+  - the launcher now includes stale-process relaunch cleanup
+  - Minecraft itself may still leave behind a stuck `minecraftpe` process after quitting
+- high-refresh / 120 Hz support is intentionally not part of the published Minecraft fix set
+  - experimental FPS unlocking work existed locally during development
+  - it was not stable enough to ship in this fork
+
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
@@ -66,38 +93,15 @@ If you have an Intel Mac, you can explore alternatives like Bootcamp or emulator
 
 ### Download
 
-You can download stable releases [here](https://github.com/PlayCover/PlayCover/releases), or build from source by following the instructions in the Documentation.
-
-For the Minecraft-specific fork layout and maintenance workflow, see [MINECRAFT_FORK.md](./MINECRAFT_FORK.md).
+Upstream PlayCover stable releases are [here](https://github.com/PlayCover/PlayCover/releases). For this fork, prefer GitHub Releases from this repository or build from source.
 
 ### Documentation
 
 To learn how to setup and use PlayCover, visit the documentation [here](https://playcover.github.io/PlayBook).
 
-### Minecraft Fork Notes
-
-This fork vendors `PlayTools` into the same repository under `Vendor/PlayTools` so Minecraft-specific changes can live in one repo while the GitHub fork relationship to upstream `PlayCover` stays intact.
-
-Maintainer notes for the one-repo layout are in [MINECRAFT_FORK.md](./MINECRAFT_FORK.md).
-
-### Current Limitations
-
-This fork is usable for Minecraft Bedrock, but it still has known shortcomings:
-
-- in-game scrolling is not fully correct yet
-  - menu scrolling is mostly fine
-  - world/in-game scrolling can still be interpreted as touch-style camera or hotbar gestures
-- controller support is not solved
-  - PlayCover/PlayTools currently rely on Apple's `GameController` stack rather than shipping a generic HID-to-iOS gamepad bridge
-  - some controllers work in some games, but Minecraft controller support is not reliably fixed in this fork
-- hanging process on quit is not fully fixed
-  - direct launch behavior is improved
-  - however, Minecraft may still leave behind a stuck `minecraftpe` process after quitting, which can block relaunch until it is killed
-- high-refresh / 120 Hz support is intentionally not part of the published Minecraft fix set
-  - experimental FPS unlocking work existed locally during development
-  - it was not stable enough to ship in this fork
-
 ### Homebrew Cask
+This section refers to the upstream PlayCover cask. It should not be treated as an installation path for this Minecraft-focused fork unless a separate fork-specific cask is published.
+
 We host a [Homebrew](https://brew.sh) tap with the [PlayCover cask](https://github.com/PlayCover/homebrew-playcover/blob/master/Casks/playcover-community.rb). To install from it run:
 
 ```sh

@@ -181,7 +181,6 @@ extension PlayApp {
     private func runExecutableFallback() {
         let process = Process()
         process.executableURL = executable
-        process.arguments = ["-ApplePersistenceIgnoreState", "YES"]
         process.environment = launchEnvironment()
 
         do {
@@ -217,7 +216,6 @@ extension PlayApp {
 
     func runAppExec() {
         let config = NSWorkspace.OpenConfiguration()
-        config.arguments = ["-ApplePersistenceIgnoreState", "YES"]
         config.environment = launchEnvironment()
 
         // Prevent propagating debugging-related variables to child process

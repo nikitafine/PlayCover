@@ -96,9 +96,24 @@ extension PlayApp {
         let launcherScript = """
         #!/bin/zsh
         APP_EXEC=\(shellSingleQuote(executablePath))
+        APP_NAME=\(shellSingleQuote(executable.lastPathComponent))
+
+        if pgrep -x "$APP_NAME" > /dev/null 2>&1 || pgrep -f "$APP_EXEC" > /dev/null 2>&1; then
+            pkill -TERM -x "$APP_NAME" > /dev/null 2>&1 || true
+            pkill -TERM -f "$APP_EXEC" > /dev/null 2>&1 || true
+            for _ in {1..5}; do
+                if ! pgrep -x "$APP_NAME" > /dev/null 2>&1 && ! pgrep -f "$APP_EXEC" > /dev/null 2>&1; then
+                    break
+                fi
+                sleep 1
+            done
+            pkill -KILL -x "$APP_NAME" > /dev/null 2>&1 || true
+            pkill -KILL -f "$APP_EXEC" > /dev/null 2>&1 || true
+            sleep 1
+        fi
 
         if [[ -x "$APP_EXEC" ]]; then
-            nohup "$APP_EXEC" -ApplePersistenceIgnoreState YES > /dev/null 2>&1 &
+            nohup "$APP_EXEC" > /dev/null 2>&1 &
             disown
             exit 0
         fi
