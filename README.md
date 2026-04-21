@@ -70,6 +70,12 @@ You can download stable releases [here](https://github.com/PlayCover/PlayCover/r
 
 To learn how to setup and use PlayCover, visit the documentation [here](https://playcover.github.io/PlayBook).
 
+### Minecraft Fork Notes
+
+This fork vendors `PlayTools` into the same repository under `Vendor/PlayTools` so Minecraft-specific changes can live in one repo while the GitHub fork relationship to upstream `PlayCover` stays intact.
+
+Maintainer notes for the one-repo layout are in [MINECRAFT_FORK.md](./MINECRAFT_FORK.md).
+
 ### Homebrew Cask
 We host a [Homebrew](https://brew.sh) tap with the [PlayCover cask](https://github.com/PlayCover/homebrew-playcover/blob/master/Casks/playcover-community.rb). To install from it run:
 
