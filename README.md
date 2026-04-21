@@ -20,7 +20,7 @@
   <h3 align="center">PlayCover</h3>
 
   <p align="center">
-    Run iOS apps and games on Apple Silicon Macs with mouse, keyboard and controller support.
+    Minecraft Bedrock-focused PlayCover fork for running the iOS version on Apple Silicon Macs.
     <br />
     <br />
     <a href="https://playcover.github.io/PlayBook">Documentation</a>
@@ -37,6 +37,8 @@
 Welcome to PlayCover! This software is all about allowing you to run iOS apps and games on Apple Silicon devices running macOS 12.0 or newer.
 
 PlayCover works by putting applications through a wrapper which imitates an iPad. This allows the apps to run natively and perform very well.
+
+This fork is focused on Minecraft Bedrock support. In addition to the upstream PlayCover app changes, it vendors the matching `PlayTools` source tree in-repo so the launcher/runtime fixes needed for Minecraft can be maintained and released from a single repository.
 
 PlayCover also allows you to map custom touch controls to keyboard, which is not possible in alternative sideloading methods such as Sideloadly. 
 
@@ -66,6 +68,8 @@ If you have an Intel Mac, you can explore alternatives like Bootcamp or emulator
 
 You can download stable releases [here](https://github.com/PlayCover/PlayCover/releases), or build from source by following the instructions in the Documentation.
 
+For the Minecraft-specific fork layout and maintenance workflow, see [MINECRAFT_FORK.md](./MINECRAFT_FORK.md).
+
 ### Documentation
 
 To learn how to setup and use PlayCover, visit the documentation [here](https://playcover.github.io/PlayBook).
@@ -75,6 +79,23 @@ To learn how to setup and use PlayCover, visit the documentation [here](https://
 This fork vendors `PlayTools` into the same repository under `Vendor/PlayTools` so Minecraft-specific changes can live in one repo while the GitHub fork relationship to upstream `PlayCover` stays intact.
 
 Maintainer notes for the one-repo layout are in [MINECRAFT_FORK.md](./MINECRAFT_FORK.md).
+
+### Current Limitations
+
+This fork is usable for Minecraft Bedrock, but it still has known shortcomings:
+
+- in-game scrolling is not fully correct yet
+  - menu scrolling is mostly fine
+  - world/in-game scrolling can still be interpreted as touch-style camera or hotbar gestures
+- controller support is not solved
+  - PlayCover/PlayTools currently rely on Apple's `GameController` stack rather than shipping a generic HID-to-iOS gamepad bridge
+  - some controllers work in some games, but Minecraft controller support is not reliably fixed in this fork
+- hanging process on quit is not fully fixed
+  - direct launch behavior is improved
+  - however, Minecraft may still leave behind a stuck `minecraftpe` process after quitting, which can block relaunch until it is killed
+- high-refresh / 120 Hz support is intentionally not part of the published Minecraft fix set
+  - experimental FPS unlocking work existed locally during development
+  - it was not stable enough to ship in this fork
 
 ### Homebrew Cask
 We host a [Homebrew](https://brew.sh) tap with the [PlayCover cask](https://github.com/PlayCover/homebrew-playcover/blob/master/Casks/playcover-community.rb). To install from it run:
