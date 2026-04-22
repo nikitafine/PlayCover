@@ -50,6 +50,13 @@ Use:
 
 before building PlayCover in Xcode or via `xcodebuild`.
 
+By default this script builds `PlayTools` from the vendored source tree.
+If you deliberately want to stage a prebuilt framework instead, set:
+
+```bash
+PLAYCOVER_PREBUILT_PLAYTOOLS_FRAMEWORK=/path/to/PlayTools.framework ./scripts/build-vendored-playtools.sh
+```
+
 ### Upstream sync
 
 Sync PlayCover upstream as a normal fork:

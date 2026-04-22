@@ -594,7 +594,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/zsh;
-			shellScript = "set -euo pipefail\n\nif [ -x /usr/local/bin/carthage ]; then\n    carthage=/usr/local/bin/carthage\nelif [ -x /opt/homebrew/bin/carthage ]; then\n    carthage=/opt/homebrew/bin/carthage\nelif [ -x /opt/local/bin/carthage ]; then\n    carthage=/opt/local/bin/carthage\nelse\n    echo \"Cannot find carthage\"\n    exit 1\nfi\n\necho \"Copying PlayTools\"\n$carthage copy-frameworks\n\necho \"Handling AKInterface files\"\nmkdir -p \"${SCRIPT_OUTPUT_FILE_0}/PlugIns\"\nrm -rf   \"${SCRIPT_OUTPUT_FILE_0}/PlugIns/AKInterface.bundle\"\ncp -R    \"${SCRIPT_INPUT_FILE_0}/PlugIns/AKInterface.bundle\" \"${SCRIPT_OUTPUT_FILE_0}/PlugIns/AKInterface.bundle\"\n\necho \"Converting to maccatalyst\"\nvtool \\\n  -set-build-version maccatalyst 11.0 14.0 \\\n  -replace -output \\\n  \"${SCRIPT_OUTPUT_FILE_0}/PlayTools\" \\\n  \"${SCRIPT_OUTPUT_FILE_0}/PlayTools\" || true\n\necho \"Rebundling shadow framework to deep framework structure\"\nFRAME=\"${SCRIPT_OUTPUT_FILE_0}\"\nNAME=\"PlayTools\"\n\nif [ -d \"$FRAME\" ] && [ ! -d \"$FRAME/Versions\" ]; then\n  echo \"Rebundling $NAME as macOS deep framework…\"\n\n  PARENT=\"$(dirname \"$FRAME\")\"\n  BASENAME=\"$(basename \"$FRAME\")\"\n  TMP=\"$PARENT/.${BASENAME}.rebundle\"\n\n  rm -rf \"$TMP\"\n  mkdir -p \"$TMP/Versions/A/Resources\" \"$TMP/Versions/A/Modules\" \"$TMP/Versions/A/PlugIns\"\n\n  echo \"moving shallow content to tmp A\"\n  [ -f \"$FRAME/$NAME\" ]      && cp -p \"$FRAME/$NAME\"      \"$TMP/Versions/A/$NAME\"\n  [ -d \"$FRAME/Headers\" ]    && cp -Rp \"$FRAME/Headers\"   \"$TMP/Versions/A/Headers\"\n  [ -d \"$FRAME/Modules\" ]    && cp -Rp \"$FRAME/Modules\"   \"$TMP/Versions/A/Modules\"\n  [ -f \"$FRAME/Info.plist\" ] && cp -p \"$FRAME/Info.plist\" \"$TMP/Versions/A/Resources/Info.plist\"\n\n  if [ -d \"$FRAME/Resources\" ]; then\n    ditto \"$FRAME/Resources\" \"$TMP/Versions/A/Resources\"\n  fi\n\n  for lproj in \"$FRAME\"/*.lproj; do\n    cp -Rp \"$lproj\" \"$TMP/Versions/A/Resources\"\n  done\n\n  if [ -d \"$FRAME/PlugIns\" ]; then\n    ditto \"$FRAME/PlugIns\" \"$TMP/Versions/A/PlugIns\"\n  fi\n\n  echo \"symlinking playtools\"\n  ln -s A \"$TMP/Versions/Current\"\n  ln -s Versions/Current/Resources \"$TMP/Resources\"\n  [ -d \"$TMP/Versions/A/Headers\" ] && ln -s Versions/Current/Headers \"$TMP/Headers\"\n  [ -d \"$TMP/Versions/A/Modules\" ] && ln -s Versions/Current/Modules \"$TMP/Modules\"\n  ln -s Versions/Current/$NAME \"$TMP/$NAME\"\n  [ -d \"$TMP/Versions/A/PlugIns\" ] && ln -s Versions/Current/PlugIns \"$TMP/PlugIns\"\n\n  rm -rf \"$FRAME\"\n  mv \"$TMP\" \"$FRAME\"\n\n  echo \"Rebundle done.\"\nfi\n";
+			shellScript = "set -euo pipefail\n\nSOURCE_FRAME=\"${SCRIPT_INPUT_FILE_0}\"\nFRAME=\"${SCRIPT_OUTPUT_FILE_0}\"\nNAME=\"PlayTools\"\nPARENT=\"$(dirname \"$FRAME\")\"\nBASENAME=\"$(basename \"$FRAME\")\"\nTMP=\"$PARENT/.${BASENAME}.rebundle\"\n\nif [ ! -d \"$SOURCE_FRAME\" ]; then\n  echo \"Missing source framework: $SOURCE_FRAME\"\n  exit 1\nfi\n\necho \"Assembling PlayTools.framework from vendored build\"\nrm -rf \"$FRAME\" \"$TMP\"\nmkdir -p \"$TMP/Versions/A/Resources\" \"$TMP/Versions/A/Modules\" \"$TMP/Versions/A/PlugIns\"\n\ncp -p \"$SOURCE_FRAME/$NAME\" \"$TMP/Versions/A/$NAME\"\n[ -d \"$SOURCE_FRAME/Headers\" ] && cp -Rp \"$SOURCE_FRAME/Headers\" \"$TMP/Versions/A/Headers\"\n[ -d \"$SOURCE_FRAME/Modules\" ] && cp -Rp \"$SOURCE_FRAME/Modules\" \"$TMP/Versions/A/Modules\"\ncp -p \"$SOURCE_FRAME/Info.plist\" \"$TMP/Versions/A/Resources/Info.plist\"\n\nsetopt local_options null_glob\nfor lproj in \"$SOURCE_FRAME\"/*.lproj; do\n  cp -Rp \"$lproj\" \"$TMP/Versions/A/Resources\"\ndone\n\nif [ -d \"$SOURCE_FRAME/PlugIns\" ]; then\n  ditto \"$SOURCE_FRAME/PlugIns\" \"$TMP/Versions/A/PlugIns\"\nfi\n\necho \"Creating deep framework symlinks\"\nln -s A \"$TMP/Versions/Current\"\nln -s Versions/Current/Resources \"$TMP/Resources\"\n[ -d \"$TMP/Versions/A/Headers\" ] && ln -s Versions/Current/Headers \"$TMP/Headers\"\n[ -d \"$TMP/Versions/A/Modules\" ] && ln -s Versions/Current/Modules \"$TMP/Modules\"\nln -s Versions/Current/$NAME \"$TMP/$NAME\"\n[ -d \"$TMP/Versions/A/PlugIns\" ] && ln -s Versions/Current/PlugIns \"$TMP/PlugIns\"\n\nmv \"$TMP\" \"$FRAME\"\n";
 		};
 		AAC28F222899A05B005057FB /* Codesign sparkle */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -613,7 +613,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\nset -euo pipefail\n\nIDENTITY=${EXPANDED_CODE_SIGN_IDENTITY_NAME:-\"-\"};\necho Signing identity $IDENTITY;\n\ncodesign --verbose --force --deep --sign \"$IDENTITY\" ${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/PlayTools.framework/PlugIns/AKInterface.bundle;\ncodesign --verbose --force --deep --sign \"$IDENTITY\" ${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/PlayTools.framework;\n\n# sign sparkle\nLOCATION=\"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}/Sparkle.framework\";\necho Sparkle Signing location $LOCATION;\ncodesign -f -s \"$IDENTITY\" \"$LOCATION/Versions/B/Autoupdate\";\ncodesign -f -s \"$IDENTITY\" \"$LOCATION/Versions/B/Updater.app\";\ncodesign -f -s \"$IDENTITY\" \"$LOCATION/Versions/B/XPCServices/Downloader.xpc\";\ncodesign -f -s \"$IDENTITY\" \"$LOCATION/Versions/B/XPCServices/Installer.xpc\";\ncodesign -f -s \"$IDENTITY\" \"$LOCATION\";\n";
+			shellScript = "# Type a script or drag a script file from your workspace to insert its path.\nset -euo pipefail\n\nIDENTITY=${EXPANDED_CODE_SIGN_IDENTITY_NAME:-\"-\"}\nFRAMEWORKS_DIR=\"${BUILT_PRODUCTS_DIR}/${FRAMEWORKS_FOLDER_PATH}\"\nPLAYTOOLS_FRAMEWORK=\"$FRAMEWORKS_DIR/PlayTools.framework\"\nAKINTERFACE_BUNDLE=\"$PLAYTOOLS_FRAMEWORK/PlugIns/AKInterface.bundle\"\nSPARKLE_FRAMEWORK=\"$FRAMEWORKS_DIR/Sparkle.framework\"\n\necho \"Signing identity $IDENTITY\"\n\ncodesign --verbose --force --deep --sign \"$IDENTITY\" \"$AKINTERFACE_BUNDLE\"\ncodesign --verbose --force --deep --sign \"$IDENTITY\" \"$PLAYTOOLS_FRAMEWORK\"\n\necho \"Sparkle signing location $SPARKLE_FRAMEWORK\"\ncodesign -f -s \"$IDENTITY\" \"$SPARKLE_FRAMEWORK/Versions/B/Autoupdate\"\ncodesign -f -s \"$IDENTITY\" \"$SPARKLE_FRAMEWORK/Versions/B/Updater.app\"\ncodesign -f -s \"$IDENTITY\" \"$SPARKLE_FRAMEWORK/Versions/B/XPCServices/Downloader.xpc\"\ncodesign -f -s \"$IDENTITY\" \"$SPARKLE_FRAMEWORK/Versions/B/XPCServices/Installer.xpc\"\ncodesign -f -s \"$IDENTITY\" \"$SPARKLE_FRAMEWORK\"\n";
 		};
 		AAE8809C287ACA4900FBB23C /* Carthage Bootstrap */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -826,7 +826,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_ASSET_PATHS = "PlayCover/Preview\\ Content";
-				DEVELOPMENT_TEAM = 792V9HMJW3;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				EXCLUDED_ARCHS = x86_64;
@@ -841,8 +841,8 @@
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = io.playcover.PlayCover;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "match Direct io.playcover.PlayCover macos";
+				PRODUCT_NAME = PlayCover;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				RUN_DOCUMENTATION_COMPILER = NO;
 				SWIFT_ENFORCE_EXCLUSIVE_ACCESS = off;
 				SWIFT_OBJC_BRIDGING_HEADER = "./PlayCover/PlayCover-Bridging-Header.h";
@@ -929,7 +929,7 @@
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_ASSET_PATHS = "PlayCover/Preview\\ Content";
-				DEVELOPMENT_TEAM = 792V9HMJW3;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				ENABLE_PREVIEWS = YES;
 				EXCLUDED_ARCHS = x86_64;
@@ -944,8 +944,8 @@
 				ONLY_ACTIVE_ARCH = NO;
 				OTHER_LDFLAGS = "-ObjC";
 				PRODUCT_BUNDLE_IDENTIFIER = io.playcover.PlayCover;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				PROVISIONING_PROFILE_SPECIFIER = "match Direct io.playcover.PlayCover macos";
+				PRODUCT_NAME = PlayCover;
+				PROVISIONING_PROFILE_SPECIFIER = "";
 				RUN_DOCUMENTATION_COMPILER = NO;
 				SWIFT_ENFORCE_EXCLUSIVE_ACCESS = off;
 				SWIFT_OBJC_BRIDGING_HEADER = "./PlayCover/PlayCover-Bridging-Header.h";

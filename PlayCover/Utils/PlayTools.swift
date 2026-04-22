@@ -43,6 +43,10 @@ class PlayTools {
         return playCoverPath
     }
 
+    public static var legacyCompatibilityContainer: URL {
+        playCoverContainer
+    }
+
     static func installOnSystem() {
         Task(priority: .background) {
             do {

@@ -8,6 +8,12 @@
 /output
 /apikey.json
 Package.resolved
+.build-vendored-playtools/
+.codex-build-runtime/
+.source-backed-release-build/
+.tmp-playcoverminecraft*.iconset
+PlayCover/Assets.xcassets/AppIcon-backup-*/
+PlayCover/PlayCoverMinecraft.icns
 
 ## User settings
 xcuserdata/

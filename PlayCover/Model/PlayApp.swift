@@ -249,6 +249,16 @@ extension PlayApp {
             .appendingPathComponent("Saved Application State")
             .appendingPathComponent(info.bundleIdentifier)
             .appendingPathExtension("savedState"))
+        FileManager.default.delete(at: FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library")
+            .appendingPathComponent("Saved Application State")
+            .appendingPathComponent("io.playcover.launcher.\(info.bundleIdentifier)")
+            .appendingPathExtension("savedState"))
+        FileManager.default.delete(at: FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library")
+            .appendingPathComponent("Saved Application State")
+            .appendingPathComponent("io.playcover.playcoverminecraft.launcher.\(info.bundleIdentifier)")
+            .appendingPathExtension("savedState"))
     }
 }
 

@@ -15,7 +15,8 @@
 
 default_platform(:mac)
 
-bundle_id = CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+bundle_id = ENV["FASTLANE_APP_IDENTIFIER"] || CredentialsManager::AppfileConfig.try_fetch_value(:app_identifier)
+output_name = ENV["FASTLANE_OUTPUT_NAME"] || "PlayCover Minecraft"
 
 platform :mac do
   desc "Description of what the lane does"
@@ -35,7 +36,7 @@ lane :release do
     configuration: "Release",
     scheme: "PlayCover",
     output_directory: "output",
-    output_name: "PlayCover",
+    output_name: output_name,
     export_method: "developer-id",
     destination: "generic/platform=macOS",
     skip_package_pkg: true,
@@ -54,7 +55,7 @@ lane :nightly do
     configuration: "Nightly",
     scheme: "PlayCover",
     output_directory: "output",
-    output_name: "PlayCover",
+    output_name: output_name,
     export_method: "developer-id",
     destination: "generic/platform=macOS",
     skip_package_pkg: true,
@@ -64,7 +65,7 @@ end
 
 lane :notarize_app do
   notarize(
-    package: "output/PlayCover.app",
+    package: "output/#{output_name}.app",
     api_key_path: "apikey.json",
     bundle_id: bundle_id,
   )
@@ -83,6 +84,6 @@ end
 
 lane :rename_dmg do
   sh(
-    "cd .. && find output -name '*.dmg' -exec mv {} output/PlayCover.dmg \\;",
+    "cd .. && find output -name '*.dmg' -exec mv {} output/#{output_name}.dmg \\;",
   )
 end

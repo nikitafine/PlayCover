@@ -17,10 +17,10 @@
     <img src="images/logo.png" alt="Logo" width="80" height="80">
   </a>
 
-  <h3 align="center">PlayCover</h3>
+  <h3 align="center">PlayCover Minecraft</h3>
 
   <p align="center">
-    Minecraft Bedrock-focused PlayCover fork for running the iOS version on Apple Silicon Macs.
+    A PlayCover fork focused on running Minecraft Bedrock for iOS/iPadOS on Apple Silicon Macs.
     <br />
     <br />
     <a href="https://playcover.github.io/PlayBook">Documentation</a>
@@ -31,32 +31,58 @@
   </p>
 </div>
 
+## Minecraft Bedrock Fork
+
+This repository exists specifically to run the iOS/iPadOS version of Minecraft Bedrock on Apple Silicon Macs.
+
+- this is a PlayCover fork, not the upstream PlayCover release channel
+- you need your own decrypted Minecraft Bedrock IPA file
+- this repository and its releases do not include Minecraft itself
+- prebuilt DMGs for this fork belong in GitHub Releases
+
+## Quick Start
+
+1. Download the latest DMG release from this fork.
+2. Drag `PlayCover.app` into `/Applications`.
+3. If macOS blocks it, right-click `PlayCover.app` and choose `Open` once.
+4. Run `Install Minecraft IPA.sh` from the DMG.
+5. Select a decrypted Minecraft Bedrock IPA.
+6. Launch Minecraft from PlayCover or from the generated launcher app in `~/Applications/PlayCover`.
+
+## What You Need
+
+- an Apple Silicon Mac
+- macOS 12 or newer
+- a decrypted Minecraft Bedrock IPA for iOS/iPadOS
+- Xcode Command Line Tools if you want to build from source
+
+## Current Minecraft Limitations
+
+- scrolling is still imperfect
+- mouse wheel support is not fully correct in-game
+- the shipped public build is capped at 60 FPS
+- controller support is not implemented yet
+- with Vibrant Visuals enabled, the practical render-distance ceiling is about 12 chunks
+
 ## Fork Notice
 
 This repository is a Minecraft Bedrock-focused fork of PlayCover. The goal is to keep the upstream PlayCover project recognizable while documenting the extra launcher/runtime work needed to run the iOS version of Minecraft on Apple Silicon Macs.
 
 - upstream PlayCover remains the main project and primary upstream for the app itself
 - this fork vendors the matching `PlayTools` source tree in-repo so Minecraft-specific runtime fixes can ship from one repository
+- source builds use the vendored `PlayTools` tree in `Vendor/PlayTools`
+- release binaries belong in GitHub Releases as DMG assets, not committed to git
 - the sections below still largely follow the upstream README so upstream authorship and project context stay visible
 
 Maintainer notes for the one-repo layout are in [MINECRAFT_FORK.md](./MINECRAFT_FORK.md).
 
-## Current Limitations
+## Releases
 
-This fork is usable for Minecraft Bedrock, but it still has known shortcomings:
+Use GitHub Releases from this fork for prebuilt DMGs. The repository should stay source-first:
 
-- in-game scrolling is not fully correct yet
-  - menu scrolling is mostly fine
-  - world/in-game scrolling can still be interpreted as touch-style camera or hotbar gestures
-- controller support is not solved
-  - PlayCover/PlayTools currently rely on Apple's `GameController` stack rather than shipping a generic HID-to-iOS gamepad bridge
-  - some controllers work in some games, but Minecraft controller support is not reliably fixed in this fork
-- hanging process on quit is not fully fixed at the runtime level
-  - the launcher now includes stale-process relaunch cleanup
-  - Minecraft itself may still leave behind a stuck `minecraftpe` process after quitting
-- high-refresh / 120 Hz support is intentionally not part of the published Minecraft fix set
-  - experimental FPS unlocking work existed locally during development
-  - it was not stable enough to ship in this fork
+- do not commit DMGs, IPAs, or user-specific snapshots to git
+- upload the finished DMG as a release asset
+- keep Minecraft itself out of the repository and out of releases
 
 <!-- ABOUT THE PROJECT -->
 ## About The Project
@@ -95,6 +121,50 @@ If you have an Intel Mac, you can explore alternatives like Bootcamp or emulator
 
 Upstream PlayCover stable releases are [here](https://github.com/PlayCover/PlayCover/releases). For this fork, prefer GitHub Releases from this repository or build from source.
 
+### Minecraft Install
+
+This fork expects a decrypted Minecraft Bedrock IPA. It does not include one.
+
+Recommended install flow:
+
+1. Install `PlayCover.app` from this fork's DMG.
+2. Open `Install Minecraft IPA.sh`.
+3. Select your decrypted IPA.
+4. Let the helper import the app and apply the Minecraft-specific working state.
+5. Launch Minecraft from PlayCover or the generated launcher.
+
+### Build From Source
+
+If you want to build the app and package the Minecraft DMG yourself:
+
+```sh
+git clone https://github.com/nikitafine/PlayCover.git
+cd PlayCover
+./scripts/package-source-backed-minecraft-dmg.sh
+```
+
+That script:
+
+- builds the vendored `PlayTools` tree from `Vendor/PlayTools`
+- builds `PlayCover.app` from the current source tree
+- stages the Minecraft helper assets from `release-assets/minecraft`
+- creates a source-backed DMG under `../dist/`
+
+If you only want the app build without packaging a DMG:
+
+```sh
+./scripts/build-vendored-playtools.sh
+xcodebuild build \
+  -project PlayCover.xcodeproj \
+  -scheme PlayCover \
+  -configuration Release \
+  -derivedDataPath .source-backed-release-build \
+  CODE_SIGNING_ALLOWED=NO \
+  CODE_SIGN_IDENTITY="-" \
+  SWIFT_ENABLE_EXPLICIT_MODULES=NO \
+  CLANG_ENABLE_EXPLICIT_MODULES=NO
+```
+
 ### Documentation
 
 To learn how to setup and use PlayCover, visit the documentation [here](https://playcover.github.io/PlayBook).
@@ -126,9 +196,8 @@ Distributed under the GPLv3 License. See `LICENSE` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Lucas Lee - playcover@lucas.icu
-
-Depal - depal@playcover.io
+For Minecraft-specific issues in this fork, use this repository's GitHub Issues.
+For general upstream PlayCover discussion, use the upstream PlayCover repository and community channels.
 
 
 

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.assets.movies.read-write</key>
+	<true/>
+	<key>com.apple.security.assets.music.read-write</key>
+	<true/>
+	<key>com.apple.security.assets.pictures.read-write</key>
+	<true/>
+	<key>com.apple.security.device.audio-input</key>
+	<true/>
+	<key>com.apple.security.device.bluetooth</key>
+	<true/>
+	<key>com.apple.security.device.camera</key>
+	<true/>
+	<key>com.apple.security.device.microphone</key>
+	<true/>
+	<key>com.apple.security.device.usb</key>
+	<true/>
+	<key>com.apple.security.files.downloads.read-write</key>
+	<true/>
+	<key>com.apple.security.files.user-selected.read-write</key>
+	<true/>
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
+	<key>com.apple.security.personal-information.addressbook</key>
+	<true/>
+	<key>com.apple.security.personal-information.calendars</key>
+	<true/>
+	<key>com.apple.security.personal-information.location</key>
+	<true/>
+	<key>com.apple.security.print</key>
+	<true/>
+	<key>com.apple.security.temporary-exception.sbpl</key>
+	<array>
+		<string>(allow user-preference-write (preference-domain ".GlobalPreferences"))</string>
+		<string>(allow user-preference-read (preference-domain ".GlobalPreferences"))</string>
+		<string>(allow file* file-read* file-write* file-write-data file-read-metadata file-ioctl (subpath "__HOME__/Library/Containers/io.playcover.PlayCover"))</string>
+		<string>(allow file* file-read* file-read-metadata file-ioctl (subpath "__HOME__/Library/Frameworks/PlayTools.framework"))</string>
+		<string>(allow file* file-read* (subpath "__HOME__/Library/Group Containers/"))</string>
+		<string>(allow network* ipc-posix*)</string>
+		<string>(deny process-fork)</string>
+		<string>(deny file* file-read* file-read-metadata file-ioctl (literal "/bin/bash"))</string>
+		<string>(deny file* file-read* file-read-metadata file-ioctl (literal "/usr/sbin/sshd"))</string>
+		<string>(deny file* file-read* file-read-metadata file-ioctl (literal "/usr/libexec/ssh-keysign"))</string>
+		<string>(deny file* file-read* file-read-metadata file-ioctl (literal "/bin/sh"))</string>
+		<string>(deny file* file-read* file-read-metadata file-ioctl (literal "/etc/ssh/sshd_config"))</string>
+		<string>(deny file* file-read* file-read-metadata file-ioctl (literal "/usr/libexec/sftp-server"))</string>
+		<string>(deny file* file-read* file-read-metadata file-ioctl (literal "/usr/bin/ssh"))</string>
+	</array>
+</dict>
+</plist>

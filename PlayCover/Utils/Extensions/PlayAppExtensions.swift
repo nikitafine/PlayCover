@@ -92,11 +92,86 @@ extension PlayApp {
 
     private func writeLauncherScript() throws {
         let playCoverPath = Bundle.main.bundleURL.path
+        let bundlePath = url.path
         let executablePath = executable.path
         let launcherScript = """
         #!/bin/zsh
+        APP_BUNDLE=\(shellSingleQuote(bundlePath))
         APP_EXEC=\(shellSingleQuote(executablePath))
         APP_NAME=\(shellSingleQuote(executable.lastPathComponent))
+        POLL_INTERVAL=2
+        BACKGROUND_POLLS_TO_KILL=4
+
+        app_phase_for_pid() {
+            local pid="$1"
+            local info
+
+            info=$(lsappinfo info -app "$pid" 2>/dev/null || true)
+            if [[ -z "$info" ]]; then
+                printf '%s\\n' 'missing'
+            elif printf '%s' "$info" | grep -q 'type="Foreground"'; then
+                printf '%s\\n' 'foreground'
+            else
+                printf '%s\\n' 'background'
+            fi
+        }
+
+        watch_for_lingering_process() {
+            local pid="$1"
+            local saw_foreground=0
+            local background_polls=0
+            local phase
+            local watch_lock_dir="/tmp/playcover-watch-${APP_NAME}-${pid}"
+
+            if ! mkdir "$watch_lock_dir" 2>/dev/null; then
+                return 0
+            fi
+            trap 'rmdir "$watch_lock_dir" >/dev/null 2>&1 || true' EXIT
+
+            while kill -0 "$pid" > /dev/null 2>&1; do
+                phase=$(app_phase_for_pid "$pid")
+
+                if [[ "$phase" == 'foreground' ]]; then
+                    saw_foreground=1
+                    background_polls=0
+                elif [[ "$saw_foreground" -eq 1 ]]; then
+                    background_polls=$((background_polls + 1))
+                    if [[ "$background_polls" -ge "$BACKGROUND_POLLS_TO_KILL" ]]; then
+                        kill -TERM "$pid" > /dev/null 2>&1 || true
+                        for _ in {1..5}; do
+                            if ! kill -0 "$pid" > /dev/null 2>&1; then
+                                return 0
+                            fi
+                            sleep 1
+                        done
+                        kill -KILL "$pid" > /dev/null 2>&1 || true
+                        return 0
+                    fi
+                fi
+
+                sleep "$POLL_INTERVAL"
+            done
+        }
+
+        wait_for_launched_pid() {
+            local pid
+
+            for _ in {1..30}; do
+                pid=$(pgrep -f "$APP_EXEC" | tail -n1 || true)
+                if [[ -n "$pid" ]]; then
+                    printf '%s\\n' "$pid"
+                    return 0
+                fi
+                sleep 1
+            done
+
+            return 1
+        }
+
+        if [[ "${1:-}" == "--watch" && -n "${2:-}" ]]; then
+            watch_for_lingering_process "$2"
+            exit 0
+        fi
 
         if pgrep -x "$APP_NAME" > /dev/null 2>&1 || pgrep -f "$APP_EXEC" > /dev/null 2>&1; then
             pkill -TERM -x "$APP_NAME" > /dev/null 2>&1 || true
@@ -112,9 +187,13 @@ extension PlayApp {
             sleep 1
         fi
 
-        if [[ -x "$APP_EXEC" ]]; then
-            nohup "$APP_EXEC" > /dev/null 2>&1 &
-            disown
+        if [[ -d "$APP_BUNDLE" ]]; then
+            /usr/bin/open "$APP_BUNDLE" --args -ApplePersistenceIgnoreState YES
+            APP_PID=$(wait_for_launched_pid || true)
+            if [[ -n "$APP_PID" ]]; then
+                nohup "$0" --watch "$APP_PID" > /dev/null 2>&1 &
+                disown
+            fi
             exit 0
         fi
 
