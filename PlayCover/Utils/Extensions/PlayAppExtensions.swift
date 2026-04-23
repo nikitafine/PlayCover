@@ -98,7 +98,7 @@ extension PlayApp {
         #!/bin/zsh
         APP_BUNDLE=\(shellSingleQuote(bundlePath))
         APP_EXEC=\(shellSingleQuote(executablePath))
-        APP_NAME=\(shellSingleQuote(executable.lastPathComponent))
+        APP_ID=\(shellSingleQuote(info.bundleIdentifier))
         POLL_INTERVAL=2
         BACKGROUND_POLLS_TO_KILL=4
 
@@ -121,7 +121,7 @@ extension PlayApp {
             local saw_foreground=0
             local background_polls=0
             local phase
-            local watch_lock_dir="/tmp/playcover-watch-${APP_NAME}-${pid}"
+            local watch_lock_dir="/tmp/playcover-watch-${APP_ID}-${pid}"
 
             if ! mkdir "$watch_lock_dir" 2>/dev/null; then
                 return 0
@@ -173,28 +173,27 @@ extension PlayApp {
             exit 0
         fi
 
-        if pgrep -x "$APP_NAME" > /dev/null 2>&1 || pgrep -f "$APP_EXEC" > /dev/null 2>&1; then
-            pkill -TERM -x "$APP_NAME" > /dev/null 2>&1 || true
+        if pgrep -f "$APP_EXEC" > /dev/null 2>&1; then
             pkill -TERM -f "$APP_EXEC" > /dev/null 2>&1 || true
             for _ in {1..5}; do
-                if ! pgrep -x "$APP_NAME" > /dev/null 2>&1 && ! pgrep -f "$APP_EXEC" > /dev/null 2>&1; then
+                if ! pgrep -f "$APP_EXEC" > /dev/null 2>&1; then
                     break
                 fi
                 sleep 1
             done
-            pkill -KILL -x "$APP_NAME" > /dev/null 2>&1 || true
             pkill -KILL -f "$APP_EXEC" > /dev/null 2>&1 || true
             sleep 1
         fi
 
         if [[ -d "$APP_BUNDLE" ]]; then
-            /usr/bin/open "$APP_BUNDLE" --args -ApplePersistenceIgnoreState YES
-            APP_PID=$(wait_for_launched_pid || true)
-            if [[ -n "$APP_PID" ]]; then
-                nohup "$0" --watch "$APP_PID" > /dev/null 2>&1 &
-                disown
+            if /usr/bin/open "$APP_BUNDLE" --args -ApplePersistenceIgnoreState YES; then
+                APP_PID=$(wait_for_launched_pid || true)
+                if [[ -n "$APP_PID" ]]; then
+                    nohup "$0" --watch "$APP_PID" > /dev/null 2>&1 &
+                    disown
+                fi
+                exit 0
             fi
-            exit 0
         fi
 
         exec /usr/bin/open -a \(shellSingleQuote(playCoverPath)) \(shellSingleQuote(launcherOpenURL))
