@@ -31,6 +31,45 @@ PlayTools-side vendored state imported into `Vendor/PlayTools`:
 
 Later local experiments around FPS tuning, scroll behavior, and controller investigation were intentionally not included in this branch.
 
+### 2026-07 sync and findings
+
+Synced in July 2026 (verified working with Minecraft Bedrock 1.26.32 on macOS 27.0 beta):
+
+- merged upstream `PlayCover/develop` (custom user directory crash fix, Unity keyboard toggle)
+- cherry-picked from upstream PlayTools: macOS Tahoe MenuController fix (#188/#197),
+  motion update throttle (#195), window-close crash fix (#199), `sysctlbyname`
+  string termination (#212), disable-builtin-mouse toggle (#201)
+- ported scroll-to-key mapping (open PRs PlayTools #218 + PlayCover #2112):
+  ScrU/ScrD virtual keys, `enableScrollWheel` split into
+  `enableScrollWheelZoom`/`enableScrollWheelMapping`
+- keychain: generated SecKeys are now persisted to the PlayChain DB
+  (upstream #215), `copyMatching` reads the `type`/`kcls` columns and falls
+  back to raw key data instead of `errSecItemNotFound`, `add()` always
+  populates the caller's result pointer
+- UDP `O_NONBLOCK` hook and launcher `pkill` cleanup are scoped/anchored
+- CI: `.github/workflows/3.minecraft_dmg.yml` builds the DMG on a macOS
+  runner (`workflow_dispatch`, no signing secrets needed) — no local Xcode
+  required
+
+Known incompatibilities and dead ends (do not re-apply blindly):
+
+- upstream PlayTools controller fixes #206 (`dcc6b10`) and #213 (`3838cd6`,
+  `ControllerFocus.m`) set `GCController.shouldMonitorBackgroundEvents = true`;
+  on macOS 27.0 beta this kills ALL input (mouse clicks and keyboard) in the
+  game. Both were cherry-picked and then reverted. Retest on future macOS
+  releases before re-applying.
+- the scroll axis bug (vertical wheel input does nothing; horizontal input
+  scrolls vertically) lives BELOW the NSEvent layer: Minecraft reads scroll
+  via GameController/HID (`GCMouse`), so neither PlayTools' scroll
+  interceptor (`enableScrollWheelZoom` on or off — no difference) nor an
+  NSEvent-level axis-swap monitor (tried, reverted) has any effect. A future
+  fix needs to hook the GameController layer inside the game process, e.g.
+  swizzle `GCControllerDirectionPad.setValueChangedHandler` (or the polled
+  axis values) for the `GCMouseInput.scroll` cursor and swap x/y there.
+- `disableBuiltinMouse = true` makes things worse for Minecraft with
+  keymapping off (the game loses `GCMouse` without gaining a touch
+  fallback); keep it `false`.
+
 ### Repo layout
 
 - repo root: fork of `PlayCover/PlayCover`
