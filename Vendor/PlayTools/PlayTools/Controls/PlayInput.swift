@@ -19,7 +19,10 @@ class PlayInput {
         // drain the dispatch queue every frame for responding to GCController events
         let displaylink = CADisplayLink(target: self, selector: #selector(drainMainDispatchQueue))
         if #available(iOS 15.0, *) {
-            displaylink.preferredFrameRateRange = CAFrameRateRange(minimum: 80, maximum: 120, preferred: 120)
+            // Raise the ceiling to 120 Hz but keep the floor low: a high
+            // minimum pins the display (and the game's render loop) at high
+            // refresh even when idling in menus, which wastes a lot of energy.
+            displaylink.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 120)
         }
         displaylink.add(to: .main, forMode: .common)
 

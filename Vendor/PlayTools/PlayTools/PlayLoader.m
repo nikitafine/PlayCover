@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <sys/sysctl.h>
 #include <sys/socket.h>
+#include <sys/time.h>
 #include <sys/fcntl.h>
 #include <pthread.h>
 #include <dlfcn.h>
@@ -221,13 +222,16 @@ DYLD_INTERPOSE(pt_SecItemDelete, SecItemDelete)
 DYLD_INTERPOSE(pt_SecKeyCreateRandomKey, SecKeyCreateRandomKey)
 DYLD_INTERPOSE(pt_SecKeyGeneratePair, SecKeyGeneratePair)
 
-// Interpose socket() to force O_NONBLOCK on UDP sockets.
-// The game's main thread blocks on sendto for UDP packets; since macOS shared
-// cache may prevent interposing the kernel syscall wrapper (__sendto), we make
-// the sockets themselves non-blocking at creation time instead.
-// Scoped to Minecraft only: a process-wide O_NONBLOCK on every UDP socket can
-// surprise other consumers (e.g. resolver libraries that don't expect EAGAIN).
-static bool pt_shouldForceNonblockUDP(void) {
+// Interpose socket() to bound UDP send blocking.
+// The game's main thread can stall indefinitely in sendto for UDP packets;
+// since macOS shared cache may prevent interposing the kernel syscall wrapper
+// (__sendto), we set a send timeout on the socket at creation time instead.
+// Deliberately NOT O_NONBLOCK: a non-blocking socket also makes the game's
+// dedicated receive threads busy-spin on recvfrom/EAGAIN (~25% CPU per thread
+// even at the main menu). A send timeout keeps recv threads parked in the
+// kernel while still preventing indefinite main-thread stalls.
+// Scoped to Minecraft only.
+static bool pt_shouldBoundUDPSend(void) {
     static bool result = false;
     static dispatch_once_t once;
     dispatch_once(&once, ^{
@@ -239,11 +243,9 @@ static bool pt_shouldForceNonblockUDP(void) {
 
 static int pt_socket(int domain, int type, int protocol) {
     int fd = socket(domain, type, protocol);
-    if (fd >= 0 && (type & SOCK_DGRAM) && pt_shouldForceNonblockUDP()) {
-        int flags = fcntl(fd, F_GETFL, 0);
-        if (flags >= 0) {
-            fcntl(fd, F_SETFL, flags | O_NONBLOCK);
-        }
+    if (fd >= 0 && (type & SOCK_DGRAM) && pt_shouldBoundUDPSend()) {
+        struct timeval tv = { .tv_sec = 0, .tv_usec = 250000 };
+        setsockopt(fd, SOL_SOCKET, SO_SNDTIMEO, &tv, sizeof(tv));
     }
     return fd;
 }
