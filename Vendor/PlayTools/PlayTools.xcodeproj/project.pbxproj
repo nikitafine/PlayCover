@@ -81,7 +81,6 @@
 		B127172528817C040025112B /* DiscordIPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = B127172428817C040025112B /* DiscordIPC.swift */; };
 		B1271729288284BE0025112B /* DiscordActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1271728288284BE0025112B /* DiscordActivity.swift */; };
 		B1E8CF8A28BBE2AB004340D3 /* Keymapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1E8CF8928BBE2AB004340D3 /* Keymapping.swift */; };
-		B444BB0D2F49C1D100ADCC5A /* ControllerFocus.m in Sources */ = {isa = PBXBuildFile; fileRef = B444BB0B2F49C1D100ADCC5A /* ControllerFocus.m */; };
 		B46C02C72C634AB5007637AB /* BatteryLevel.m in Sources */ = {isa = PBXBuildFile; fileRef = B46C02C62C634AB5007637AB /* BatteryLevel.m */; };
 		EEB248592B81D074000C230A /* PlayedAppleDB.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEB248582B81D074000C230A /* PlayedAppleDB.swift */; };
 /* End PBXBuildFile section */
@@ -179,7 +178,6 @@
 		B127172428817C040025112B /* DiscordIPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscordIPC.swift; sourceTree = "<group>"; };
 		B1271728288284BE0025112B /* DiscordActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiscordActivity.swift; sourceTree = "<group>"; };
 		B1E8CF8928BBE2AB004340D3 /* Keymapping.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Keymapping.swift; sourceTree = "<group>"; };
-		B444BB0B2F49C1D100ADCC5A /* ControllerFocus.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ControllerFocus.m; sourceTree = "<group>"; };
 		B46C02C62C634AB5007637AB /* BatteryLevel.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = BatteryLevel.m; sourceTree = "<group>"; };
 		B46C02C82C634C60007637AB /* BatteryLevel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BatteryLevel.h; sourceTree = "<group>"; };
 		EEB248582B81D074000C230A /* PlayedAppleDB.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayedAppleDB.swift; sourceTree = "<group>"; };
@@ -477,7 +475,6 @@
 				AA719798287A481500623C15 /* Toast.swift */,
 				6E7663A428D0FEBE00DE4AF9 /* AKPluginLoader.swift */,
 				B46C02C62C634AB5007637AB /* BatteryLevel.m */,
-				B444BB0B2F49C1D100ADCC5A /* ControllerFocus.m */,
 				B46C02C82C634C60007637AB /* BatteryLevel.h */,
 			);
 			path = Utils;
@@ -721,7 +718,6 @@
 				9562D1642AB4FEB4002C329D /* TouchscreenMouseEventAdapter.swift in Sources */,
 				9562D1602AB4FD46002C329D /* TransparentControllerEventAdapter.swift in Sources */,
 				B46C02C72C634AB5007637AB /* BatteryLevel.m in Sources */,
-				B444BB0D2F49C1D100ADCC5A /* ControllerFocus.m in Sources */,
 				9562D1792AB64458002C329D /* ModeAutomaton.swift in Sources */,
 				AA71970D287A44D200623C15 /* PlaySettings.swift in Sources */,
 				95D474FB2C0BA77B0072797F /* JoystickElement.swift in Sources */,
