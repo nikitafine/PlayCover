@@ -1,0 +1,27 @@
+name: Build source-backed Minecraft DMG
+on:
+  workflow_dispatch:
+env:
+  CI: true
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install dependencies
+        shell: bash
+        run: brew install ripgrep
+
+      - name: Package source-backed Minecraft DMG
+        shell: bash
+        run: |
+          export PLAYCOVER_RELEASE_DIST_DIR="$GITHUB_WORKSPACE/dist-out"
+          ./scripts/package-source-backed-minecraft-dmg.sh
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: PlayCover-Minecraft-source-backed-dmg
+          path: dist-out/*.dmg
