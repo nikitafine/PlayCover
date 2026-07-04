@@ -12,6 +12,7 @@
 #import <PlayTools/PlayTools-Swift.h>
 #import "PTFakeMetaTouch.h"
 #import <VideoSubscriberAccount/VideoSubscriberAccount.h>
+#import <CoreMotion/CoreMotion.h>
 #import <dlfcn.h>
 
 __attribute__((visibility("hidden")))
@@ -125,6 +126,15 @@ __attribute__((visibility("hidden")))
 
 - (void) hook_setCurrentSubscription:(VSSubscription *)currentSubscription {
     // do nothing
+}
+
+- (instancetype)hook_CMMotionManager_init {
+    CMMotionManager *motionManager = (CMMotionManager *)[self hook_CMMotionManager_init];
+    // The default update interval is 0, which may lead to excessive CPU usage
+    motionManager.accelerometerUpdateInterval = 0.01;
+    motionManager.deviceMotionUpdateInterval = 0.01;
+    motionManager.gyroUpdateInterval = 0.01;
+    return motionManager;
 }
 
 // Hook for UIUserInterfaceIdiom
@@ -294,6 +304,10 @@ bool menuWasCreated = false;
             }), method_getTypeEncoding(cancelMethod));
             NSLog(@"[PlayTools] Swizzled UINSWindow cancelOperation: to block ESC fullscreen exit");
         }
+    }
+
+    if ([[PlaySettings shared] limitMotionUpdateFrequency]) {
+        [objc_getClass("CMMotionManager") swizzleInstanceMethod:@selector(init) withMethod:@selector(hook_CMMotionManager_init)];
     }
 }
 

@@ -79,6 +79,8 @@ let settings = PlaySettings.shared
     @objc lazy var noKMOnInput = settingsData.noKMOnInput
 
     @objc lazy var enableScrollWheel = settingsData.enableScrollWheel
+
+    @objc lazy var limitMotionUpdateFrequency = settingsData.limitMotionUpdateFrequency
 }
 
 struct AppSettingsData: Codable {
@@ -103,4 +105,5 @@ struct AppSettingsData: Codable {
     var rootWorkDir = true
     var noKMOnInput = false
     var enableScrollWheel = true
+    var limitMotionUpdateFrequency = false
 }
