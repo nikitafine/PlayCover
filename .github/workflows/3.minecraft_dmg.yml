@@ -12,7 +12,7 @@ jobs:
 
       - name: Install dependencies
         shell: bash
-        run: brew install ripgrep
+        run: brew install ripgrep swiftlint
 
       - name: Package source-backed Minecraft DMG
         shell: bash
