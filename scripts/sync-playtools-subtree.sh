@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT_DIR"
 
 REMOTE_NAME="playtools-upstream"
-BRANCH_NAME="main"
+BRANCH_NAME="master"
 
 if ! git remote get-url "$REMOTE_NAME" >/dev/null 2>&1; then
   echo "Missing git remote '$REMOTE_NAME'."
