@@ -115,7 +115,6 @@ DYLD_INTERPOSE(pt_sysctl, sysctl)
 
 // Use the implementations from PlayKeychain
 static OSStatus pt_SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result) {
-    NSLog(@"[PlayTools] pt_SecItemCopyMatching CALLED");
     OSStatus retval;
     if ([[PlaySettings shared] playChain]) {
         retval = [PlayKeychain copyMatching:(__bridge NSDictionary * _Nonnull)(query) result:result];
@@ -132,7 +131,6 @@ static OSStatus pt_SecItemCopyMatching(CFDictionaryRef query, CFTypeRef *result)
 }
 
 static OSStatus pt_SecItemAdd(CFDictionaryRef attributes, CFTypeRef *result) {
-    NSLog(@"[PlayTools] pt_SecItemAdd CALLED, playChain=%d", [[PlaySettings shared] playChain]);
     OSStatus retval;
     if ([[PlaySettings shared] playChain]) {
         retval = [PlayKeychain add:(__bridge NSDictionary * _Nonnull)(attributes) result:result];
@@ -178,36 +176,19 @@ static OSStatus pt_SecItemDelete(CFDictionaryRef query) {
     return retval;
 }
 
-// SecKeyCreateRandomKey interpose: generate key in-memory (no keychain persistence)
-// then manually store the key data in PlayKeychain's DB if playChain is enabled.
+// SecKeyCreateRandomKey interpose: generate key in-memory, then persist the
+// key material to PlayKeychain's DB if the caller asked for a permanent key.
 // The real SecKeyCreateRandomKey tries to persist to the macOS keychain, which
 // fails with -34018 in Mac Catalyst without proper entitlements.
+// (Implementation lives in PlayKeychain, ported from upstream PlayTools PR #215.)
 static SecKeyRef pt_SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef *error) {
-    NSLog(@"[PlayTools] pt_SecKeyCreateRandomKey CALLED, playChain=%d", [[PlaySettings shared] playChain]);
-
-    if (![[PlaySettings shared] playChain]) {
-        return SecKeyCreateRandomKey(parameters, error);
+    SecKeyRef result;
+    if ([[PlaySettings shared] playChain]) {
+        result = (SecKeyRef)[PlayKeychain keyCreateRandomKey:(__bridge NSDictionary * _Nonnull)(parameters)
+                                                       error:(void *)error];
+    } else {
+        result = SecKeyCreateRandomKey(parameters, error);
     }
-
-    // Strip kSecAttrIsPermanent so the key is generated in-memory only
-    NSMutableDictionary *params = [(__bridge NSDictionary *)parameters mutableCopy];
-    [params removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
-
-    // Also strip it from private key attrs if present
-    NSMutableDictionary *privAttrs = [params[(__bridge id)kSecAttrIsPermanent] mutableCopy];
-    if (params[(__bridge id)kSecPrivateKeyAttrs]) {
-        privAttrs = [params[(__bridge id)kSecPrivateKeyAttrs] mutableCopy];
-        [privAttrs removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
-        params[(__bridge id)kSecPrivateKeyAttrs] = privAttrs;
-    }
-    if (params[(__bridge id)kSecPublicKeyAttrs]) {
-        NSMutableDictionary *pubAttrs = [params[(__bridge id)kSecPublicKeyAttrs] mutableCopy];
-        [pubAttrs removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
-        params[(__bridge id)kSecPublicKeyAttrs] = pubAttrs;
-    }
-
-    SecKeyRef result = SecKeyCreateRandomKey((__bridge CFDictionaryRef)params, error);
-    NSLog(@"[PlayTools] pt_SecKeyCreateRandomKey result=%d", result != NULL ? 0 : -1);
 
     if ([[PlaySettings shared] playChainDebugging]) {
         [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecKeyCreateRandomKey: %@", parameters]];
@@ -216,29 +197,16 @@ static SecKeyRef pt_SecKeyCreateRandomKey(CFDictionaryRef parameters, CFErrorRef
     return result;
 }
 
+// Deprecated, but some apps might still use it.
 static OSStatus pt_SecKeyGeneratePair(CFDictionaryRef parameters, SecKeyRef *publicKey, SecKeyRef *privateKey) {
-    NSLog(@"[PlayTools] pt_SecKeyGeneratePair CALLED, playChain=%d", [[PlaySettings shared] playChain]);
-
-    if (![[PlaySettings shared] playChain]) {
-        return SecKeyGeneratePair(parameters, publicKey, privateKey);
+    OSStatus retval;
+    if ([[PlaySettings shared] playChain]) {
+        retval = [PlayKeychain keyGeneratePair:(__bridge NSDictionary * _Nonnull)(parameters)
+                                     publicKey:(void *)publicKey
+                                    privateKey:(void *)privateKey];
+    } else {
+        retval = SecKeyGeneratePair(parameters, publicKey, privateKey);
     }
-
-    // Strip kSecAttrIsPermanent from params to avoid real keychain storage
-    NSMutableDictionary *params = [(__bridge NSDictionary *)parameters mutableCopy];
-    [params removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
-    if (params[(__bridge id)kSecPrivateKeyAttrs]) {
-        NSMutableDictionary *privAttrs = [params[(__bridge id)kSecPrivateKeyAttrs] mutableCopy];
-        [privAttrs removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
-        params[(__bridge id)kSecPrivateKeyAttrs] = privAttrs;
-    }
-    if (params[(__bridge id)kSecPublicKeyAttrs]) {
-        NSMutableDictionary *pubAttrs = [params[(__bridge id)kSecPublicKeyAttrs] mutableCopy];
-        [pubAttrs removeObjectForKey:(__bridge id)kSecAttrIsPermanent];
-        params[(__bridge id)kSecPublicKeyAttrs] = pubAttrs;
-    }
-
-    OSStatus retval = SecKeyGeneratePair((__bridge CFDictionaryRef)params, publicKey, privateKey);
-    NSLog(@"[PlayTools] pt_SecKeyGeneratePair result=%d", (int)retval);
 
     if ([[PlaySettings shared] playChainDebugging]) {
         [PlayKeychain debugLogger: [NSString stringWithFormat:@"SecKeyGeneratePair: %@", parameters]];
@@ -257,14 +225,25 @@ DYLD_INTERPOSE(pt_SecKeyGeneratePair, SecKeyGeneratePair)
 // The game's main thread blocks on sendto for UDP packets; since macOS shared
 // cache may prevent interposing the kernel syscall wrapper (__sendto), we make
 // the sockets themselves non-blocking at creation time instead.
+// Scoped to Minecraft only: a process-wide O_NONBLOCK on every UDP socket can
+// surprise other consumers (e.g. resolver libraries that don't expect EAGAIN).
+static bool pt_shouldForceNonblockUDP(void) {
+    static bool result = false;
+    static dispatch_once_t once;
+    dispatch_once(&once, ^{
+        NSString *bundleID = [[NSBundle mainBundle] bundleIdentifier];
+        result = [bundleID isEqualToString:@"com.mojang.minecraftpe"];
+    });
+    return result;
+}
+
 static int pt_socket(int domain, int type, int protocol) {
     int fd = socket(domain, type, protocol);
-    if (fd >= 0 && (type & SOCK_DGRAM)) {
+    if (fd >= 0 && (type & SOCK_DGRAM) && pt_shouldForceNonblockUDP()) {
         int flags = fcntl(fd, F_GETFL, 0);
         if (flags >= 0) {
             fcntl(fd, F_SETFL, flags | O_NONBLOCK);
         }
-        NSLog(@"[PlayTools] socket() created UDP fd=%d, set O_NONBLOCK", fd);
     }
     return fd;
 }
