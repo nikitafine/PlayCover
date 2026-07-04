@@ -94,6 +94,9 @@ APP_EXEC='${app_exec}'
 APP_NAME='${app_exec##*/}'
 POLL_INTERVAL=2
 BACKGROUND_POLLS_TO_KILL=4
+# Anchored pattern: match only processes whose command line starts with
+# the app executable path (pkill -f is an unanchored regex otherwise)
+APP_EXEC_PATTERN="^\${APP_EXEC}( |\$)"
 
 app_phase_for_pid() {
     local pid="\$1"
@@ -150,7 +153,7 @@ wait_for_launched_pid() {
     local pid
 
     for _ in {1..30}; do
-        pid=\$(pgrep -f "\$APP_EXEC" | tail -n1 || true)
+        pid=\$(pgrep -f "\$APP_EXEC_PATTERN" | tail -n1 || true)
         if [[ -n "\$pid" ]]; then
             printf '%s\n' "\$pid"
             return 0
@@ -166,17 +169,17 @@ if [[ "\${1:-}" == "--watch" && -n "\${2:-}" ]]; then
     exit 0
 fi
 
-if pgrep -x "\$APP_NAME" > /dev/null 2>&1 || pgrep -f "\$APP_EXEC" > /dev/null 2>&1; then
+if pgrep -x "\$APP_NAME" > /dev/null 2>&1 || pgrep -f "\$APP_EXEC_PATTERN" > /dev/null 2>&1; then
     pkill -TERM -x "\$APP_NAME" > /dev/null 2>&1 || true
-    pkill -TERM -f "\$APP_EXEC" > /dev/null 2>&1 || true
+    pkill -TERM -f "\$APP_EXEC_PATTERN" > /dev/null 2>&1 || true
     for _ in {1..5}; do
-        if ! pgrep -x "\$APP_NAME" > /dev/null 2>&1 && ! pgrep -f "\$APP_EXEC" > /dev/null 2>&1; then
+        if ! pgrep -x "\$APP_NAME" > /dev/null 2>&1 && ! pgrep -f "\$APP_EXEC_PATTERN" > /dev/null 2>&1; then
             break
         fi
         sleep 1
     done
     pkill -KILL -x "\$APP_NAME" > /dev/null 2>&1 || true
-    pkill -KILL -f "\$APP_EXEC" > /dev/null 2>&1 || true
+    pkill -KILL -f "\$APP_EXEC_PATTERN" > /dev/null 2>&1 || true
     sleep 1
 fi
 
