@@ -41,7 +41,8 @@ struct AppSettingsData: Codable {
     var injectIntrospection = false
     var rootWorkDir = true
     var noKMOnInput = true
-    var enableScrollWheel = true
+    var enableScrollWheelZoom = true // Original zoom logic
+    var enableScrollWheelMapping = false // New keymapping logic
     var hideTitleBar = false
     var floatingWindow = false
     var checkMicPermissionSync = false
@@ -82,7 +83,6 @@ struct AppSettingsData: Codable {
         injectIntrospection = try container.decodeIfPresent(Bool.self, forKey: .injectIntrospection) ?? false
         rootWorkDir = try container.decodeIfPresent(Bool.self, forKey: .rootWorkDir) ?? true
         noKMOnInput = try container.decodeIfPresent(Bool.self, forKey: .noKMOnInput) ?? true
-        enableScrollWheel = try container.decodeIfPresent(Bool.self, forKey: .enableScrollWheel) ?? true
         hideTitleBar = try container.decodeIfPresent(Bool.self, forKey: .hideTitleBar) ?? false
         floatingWindow = try container.decodeIfPresent(Bool.self, forKey: .floatingWindow) ?? false
         checkMicPermissionSync = try container.decodeIfPresent(Bool.self, forKey: .checkMicPermissionSync) ?? false
@@ -95,10 +95,13 @@ struct AppSettingsData: Codable {
         blockSleepSpamming = try container.decodeIfPresent(Bool.self, forKey: .blockSleepSpamming) ?? false
         ignoreUnityKeyboardInitializationError = try container.decodeIfPresent(
             Bool.self, forKey: .ignoreUnityKeyboardInitializationError) ?? false
+        // Decode scroll wheel settings
+        enableScrollWheelZoom = try container.decodeIfPresent(Bool.self, forKey: .enableScrollWheelZoom) ?? true
+        enableScrollWheelMapping = try container.decodeIfPresent(Bool.self, forKey: .enableScrollWheelMapping) ?? false
     }
 }
 
-class AppSettings {
+class AppSettings: ObservableObject {
     static var appSettingsDir: URL {
         let settingsFolder =
             PlayTools.playCoverContainer.appendingPathComponent("App Settings")
@@ -118,7 +121,7 @@ class AppSettings {
     let settingsUrl: URL
     var openWithLLDB: Bool = false
     var openLLDBWithTerminal: Bool = true
-    var settings: AppSettingsData {
+    @Published var settings: AppSettingsData {
         didSet {
             encode()
         }

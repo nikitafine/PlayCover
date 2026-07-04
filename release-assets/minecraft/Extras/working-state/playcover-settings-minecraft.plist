@@ -25,7 +25,7 @@
 		<key>details</key>
 		<string></string>
 		<key>enable</key>
-		<true/>
+		<false/>
 		<key>image</key>
 		<string></string>
 		<key>state</key>
@@ -35,6 +35,10 @@
 	<integer>0</integer>
 	<key>enableScrollWheel</key>
 	<true/>
+	<key>enableScrollWheelZoom</key>
+	<true/>
+	<key>enableScrollWheelMapping</key>
+	<false/>
 	<key>floatingWindow</key>
 	<false/>
 	<key>hideTitleBar</key>

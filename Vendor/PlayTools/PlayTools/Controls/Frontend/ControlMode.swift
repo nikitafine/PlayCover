@@ -67,7 +67,8 @@ public class ControlMode: Equatable {
                                            isRepeat: isRepeat, ctrlModified: ctrlModified)},
           swapMode: ModeAutomaton.onOption)
 
-        if PlaySettings.shared.enableScrollWheel {
+        // Initialize scroll wheel if either zoom or keymapping is enabled
+        if PlaySettings.shared.enableScrollWheelZoom || PlaySettings.shared.enableScrollWheelMapping {
             AKInterface.shared!.setupScrollWheel({deltaX, deltaY in
                 self.mouseAdapter.handleScrollWheel(deltaX: deltaX, deltaY: deltaY)
             })
