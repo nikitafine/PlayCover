@@ -56,8 +56,16 @@ Known incompatibilities and dead ends (do not re-apply blindly):
 - upstream PlayTools controller fixes #206 (`dcc6b10`) and #213 (`3838cd6`,
   `ControllerFocus.m`) set `GCController.shouldMonitorBackgroundEvents = true`;
   on macOS 27.0 beta this kills ALL input (mouse clicks and keyboard) in the
-  game. Both were cherry-picked and then reverted. Retest on future macOS
-  releases before re-applying.
+  game — and controller input did NOT work either while they were applied,
+  so the patch buys nothing here. Both were cherry-picked and then reverted.
+  Retest on future macOS releases before re-applying.
+- working input (clicks, mouse look, keyboard) flows through the Catalyst
+  touch/pointer translation; everything that depends on the GameController
+  framework is broken under PlayCover on macOS 27 (GCMouse scroll arrives
+  axis-mangled, GCController events never arrive). A future investigation
+  should start with a diagnostic PlayTools build that logs GCMouse.current,
+  GCController.controllers(), and scroll handler activity in-process to map
+  what the framework actually delivers before attempting fixes.
 - the scroll axis bug (vertical wheel input does nothing; horizontal input
   scrolls vertically) lives BELOW the NSEvent layer: Minecraft reads scroll
   via GameController/HID (`GCMouse`), so neither PlayTools' scroll
