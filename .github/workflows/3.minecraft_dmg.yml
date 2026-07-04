@@ -3,6 +3,9 @@ on:
   workflow_dispatch:
 env:
   CI: true
+  # Skips the SwiftLint build phases (their rules drift with SwiftLint
+  # versions and hard-fail the build; lint runs in SwiftLint.yml instead)
+  FASTLANE: "1"
 jobs:
   build:
     runs-on: macos-26
@@ -12,7 +15,7 @@ jobs:
 
       - name: Install dependencies
         shell: bash
-        run: brew install ripgrep swiftlint
+        run: brew install ripgrep
 
       - name: Package source-backed Minecraft DMG
         shell: bash
