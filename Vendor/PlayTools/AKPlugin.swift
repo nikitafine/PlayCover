@@ -11,36 +11,6 @@ import Foundation
 
 class AKPlugin: NSObject, Plugin {
     required override init() {
-        super.init()
-        AKPlugin.setupScrollAxisSwapIfNeeded()
-    }
-
-    // Minecraft Bedrock reads mouse scroll through the GameController GCMouse
-    // path, where the Catalyst translation delivers wheel deltas on the wrong
-    // axis (vertical wheel input does nothing; horizontal input scrolls
-    // vertically). Swap the axes at the AppKit layer, before Catalyst sees
-    // the event, so vertical wheel scrolling reaches the game as vertical.
-    private static var scrollSwapInstalled = false
-    private static func setupScrollAxisSwapIfNeeded() {
-        guard !scrollSwapInstalled,
-              Bundle.main.bundleIdentifier == "com.mojang.minecraftpe" else { return }
-        scrollSwapInstalled = true
-        NSEvent.addLocalMonitorForEvents(matching: .scrollWheel, handler: { event in
-            guard let cgEvent = event.cgEvent?.copy() else { return event }
-            let line1 = cgEvent.getIntegerValueField(.scrollWheelEventDeltaAxis1)
-            let line2 = cgEvent.getIntegerValueField(.scrollWheelEventDeltaAxis2)
-            let point1 = cgEvent.getIntegerValueField(.scrollWheelEventPointDeltaAxis1)
-            let point2 = cgEvent.getIntegerValueField(.scrollWheelEventPointDeltaAxis2)
-            let fixed1 = cgEvent.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1)
-            let fixed2 = cgEvent.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2)
-            cgEvent.setIntegerValueField(.scrollWheelEventDeltaAxis1, value: line2)
-            cgEvent.setIntegerValueField(.scrollWheelEventDeltaAxis2, value: line1)
-            cgEvent.setIntegerValueField(.scrollWheelEventPointDeltaAxis1, value: point2)
-            cgEvent.setIntegerValueField(.scrollWheelEventPointDeltaAxis2, value: point1)
-            cgEvent.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1, value: fixed2)
-            cgEvent.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2, value: fixed1)
-            return NSEvent(cgEvent: cgEvent) ?? event
-        })
     }
 
     var screenCount: Int {
